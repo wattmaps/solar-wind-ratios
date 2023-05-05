@@ -1,0 +1,177 @@
+---
+title: "NREL ATB Data Cleaning"
+author: "Colleen McCamy"
+date: "2023-04-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(readr)
+
+
+# file path to save CSVs to
+file_path <- "/Users/colleenmccamy/Documents/MEDS/Capstone/data/nrel_atb/"
+
+```
+
+
+### Reading in the NREL ATB Data
+
+```{r}
+
+nrel_atb <- read_csv("/Users/colleenmccamy/Documents/MEDS/Capstone/data/nrel_atb/ATBe.csv")
+
+```
+
+### Filtering the data for wind & solar
+
+```{r}
+
+nrel_wind_solar <- nrel_atb |> 
+  filter(technology == "UtilityPV" | technology == "LandbasedWind") |> 
+  select(-c("...1", "units")) |> 
+  rename(dollars_kWh = "value") |> 
+  mutate(dollars_MWh = dollars_kWh * 1000)
+
+# filtering for capital cost per resource type
+nrel_capex_solar <- nrel_windsolar |> 
+  filter(core_metric_parameter == "CAPEX" & technology == "UtilityPV") |> 
+  write_csv(file = paste0(file_path, "nrel_capex_solar.csv"))
+
+nrel_capex_wind <- nrel_windsolar |> 
+  filter(core_metric_parameter == "CAPEX" & technology == "LandbasedWind") |> 
+  write_csv(file = paste0(file_path, "nrel_capex_wind.csv"))
+
+# filtering for fixed O&M per resource type
+nrel_fixedOM_solar <- nrel_windsolar |> 
+  filter(core_metric_parameter == "Fixed O&M" & technology == "UtilityPV") |> 
+  write_csv(file = paste0(file_path, "nrel_fixedOM_solar.csv"))
+
+nrel_fixedOM_wind <- nrel_windsolar |> 
+  filter(core_metric_parameter == "Fixed O&M" & technology == "LandbasedWind") |> 
+  write_csv(file = paste0(file_path, "nrel_fixedOM_wind.csv"))
+
+```
+
+### Filtering for different scenario years
+
+```{r}
+
+# ----------- CAPEX --------------------------
+
+### -------------
+# Solar 
+### -------------
+# advanced scenario
+nrel_solar_capex_adv <- nrel_capex_solar |> 
+  filter(scenario == "Advanced") |> 
+  write_csv(file = paste0(file_path, "nrel_solar_capex_adv.csv"))
+
+# moderate scenario
+nrel_solar_capex_mod <- nrel_capex_solar |> 
+  filter(scenario == "Moderate") |> 
+  write_csv(file = paste0(file_path, "nrel_solar_capex_mod.csv"))
+
+# conservative scenario
+nrel_solar_capex_conser <- nrel_capex_solar |> 
+  filter(scenario == "Conservative") |> 
+  write_csv(file = paste0(file_path, "nrel_solar_capex_conser.csv"))
+
+
+### -------------
+# Wind
+### -------------
+
+# advanced scenario
+nrel_wind_capex_adv <- nrel_capex_wind |> 
+  filter(scenario == "Advanced") |> 
+  write_csv(file = paste0(file_path, "nrel_wind_capex_adv.csv"))
+
+# moderate scenario
+nrel_wind_capex_mod <- nrel_capex_wind |> 
+  filter(scenario == "Moderate") |> 
+  write_csv(file = paste0(file_path, "nrel_wind_capex_mod.csv"))
+
+# conservative scenario
+nrel_wind_capex_conser <- nrel_capex_wind |> 
+  filter(scenario == "Conservative") |> 
+  write_csv(file = paste0(file_path, "nrel_wind_capex_conser.csv"))
+
+# ----------- O&M --------------------------
+
+### -------------
+# Solar 
+### -------------
+# advanced scenario
+nrel_solar_fixedOM_adv <- nrel_fixedOM_solar |> 
+  filter(scenario == "Advanced") |> 
+  write_csv(file = paste0(file_path, "nrel_solar_fixedOM_adv.csv"))
+
+# moderate scenario
+nrel_solar_fixedOM_mod <- nrel_fixedOM_solar |> 
+  filter(scenario == "Moderate") |> 
+  write_csv(file = paste0(file_path, "nrel_solar_fixedOM_mod.csv"))
+
+# conservative scenario
+nrel_solar_fixedOM_conser <- nrel_fixedOM_solar |> 
+  filter(scenario == "Conservative") |> 
+  write_csv(file = paste0(file_path, "nrel_solar_fixedOM_conser.csv"))
+
+### -------------
+# Wind
+### -------------
+# advanced scenario
+nrel_wind_fixedOM_adv <- nrel_fixedOM_wind |> 
+  filter(scenario == "Advanced") |> 
+  write_csv(file = paste0(file_path, "nrel_wind_fixedOM_adv.csv"))
+
+# moderate scenario
+nrel_wind_fixedOM_mod <- nrel_fixedOM_wind |> 
+  filter(scenario == "Moderate") |> 
+  write_csv(file = paste0(file_path, "nrel_wind_fixedOM_mod.csv"))
+
+# conservative scenario
+nrel_wind_fixedOM_conser <- nrel_fixedOM_wind |> 
+  filter(scenario == "Conservative") |> 
+  write_csv(file = paste0(file_path, "nrel_wind_fixedOM_conser.csv"))
+
+```
+
+```{r}
+
+# using the Real WACC to find the CRF
+
+# solar crf
+nrel_crf_solar <- nrel_wind_solar |> 
+  filter(core_metric_parameter == "WACC Real" 
+         & technology == "UtilityPV")
+  mutate(dollars_MWh = as.numeric(paste(nrel_wind_solar$dollars_MWh * (1/(1 - (1/(1+dollars_MWh)))))),
+         dollars_kWh = as.numeric(paste(nrel_wind_solar$dollars_MWh * (1/(1 - (1/(1+dollars_MWh))))))) |> 
+  mutate(core_metric_parameter = 
+           case_when(core_metric_parameter == "WACC Real"~ "CRF"))
+  
+# writing as csv
+write_csv(nrel_crf_solar, file = paste0(file_path, "nrel_crf_solar.csv"))
+
+
+# -------
+
+# wind energy crf
+nrel_crf_wind <- nrel_wind_solar |> 
+  filter(core_metric_parameter == "WACC Real" 
+         & technology == "LandbasedWind")
+  mutate(dollars_MWh = as.numeric(paste(dollars_MWh * (1/(1 - (1/(1+dollars_MWh)))))),
+         dollars_kWh = as.numeric(paste(dollars_kWh * (1/(1 - (1/(1+dollars_MWh))))))) |> 
+  mutate(core_metric_parameter = 
+           case_when(core_metric_parameter == "WACC Real" ~ "CRF"))
+
+# writing as csv
+write_csv(nrel_crf_wind, file = paste0(file_path, "nrel_crf_wind.csv"))
+
+  
+```
+
+CRF Equation:
+https://atb.nrel.gov/electricity/2022/equations_&_variables#:~:text=Capital%20Recovery%20Factor%20(CRF)%3A,a%20given%20length%20of%20time.&text=Weighted%20Average%20Cost%20of%20Capital,is%20paid%20to%20finance%20assets.

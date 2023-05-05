@@ -1,0 +1,109 @@
+---
+title: "Exisiting Wind Farm Data Wrangling"
+author: "Colleen McCamy"
+date: "2023-02-17"
+output: html_document
+---
+
+```{r}
+library(terra)
+library(sf)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(tmap)
+library(tmaptools) 
+library(tictoc)
+library(tidyverse)
+
+path <- "/Users/colleenmccamy/Documents/MEDS/Capstone/data/"
+```
+
+## Read in the Wind Data
+```{r}
+# reading in shapefile from power of place
+old_exisiting_wind <- st_read("/Users/colleenmccamy/Documents/MEDS/Capstone/data/united_states_wind_turbines/uswtdb_v5_3_20230113/uswtdb_v5_3_20230113.shp")
+
+#crs(old_exisiting_wind) # checking to see that it is in NAD83 crs
+
+# reading in shapefile from power of place
+wind_proj <- read_csv(paste0(path,                "exisitingWindContUS/uswtdb_v4_3_20220114_ucsb.csv"))
+
+# adding spatial coordintates to the dataframe
+wind_proj_geom <- st_as_sf(wind_proj,
+                           coords = c("xlong", "ylat"),
+                           crs = 4269)
+# checking the class
+#class(wind_proj_geom$geometry)
+
+```
+
+# Get site locations for the contiguous US
+
+## Crop the US Wind Data to just congiguous US
+```{r}
+# creating a bound box for the contiguous US
+contiguous_us <- st_bbox(c(xmin = -125, ymin = 24, xmax = -66.5, ymax = 50), crs = st_crs(wind_proj_geom))
+
+# cropping the wind data for the 
+wind_proj_contiguous <- st_crop(wind_proj_geom, contiguous_us)
+
+tm_shape(wind_proj_contiguous) +
+   tm_dots(col = "#2A9D8F") +
+   tm_layout(main.title = "Exisiting Wind Sites in the Contiguous U.S.")
+
+# export US points as shapefile
+#st_write(wind_proj_contiguous, paste0(path, "existing_wind_contiguous_us.shp"))
+```
+
+## Finding Centroid for Each Project
+
+```{r}
+# grouping by project ID and keeping the p_cap and geometry column
+pid_data <- wind_proj_contiguous |> 
+  group_by(p_id) |> # grouping by pid
+  summarise(p_cap = first(p_cap)) |> # keeping the project capcaity
+  mutate(polygon = st_convex_hull(geometry)) |> # making polygon from point data
+  mutate(centroid = st_centroid(polygon)) |> # finding the centroid of the polygons
+  filter(!is.na(p_id)) # removing the polygon of all sites
+
+```
+
+
+## Find point locations for SAM Inputs
+```{r}
+
+# changing view to interactive
+tmap_mode(mode = "view")
+
+# Plotting to see that the centroids/polygons are accurate
+tm_shape(pid_data$geometry) +
+  tm_dots(col = "#264653", size = 0.2) +
+  tm_shape(pid_data$polygon) +
+  tm_fill(col = "#2a9d8f", alpha = 0.5) +
+  tm_shape(pid_data$centroid) +
+  tm_dots(col = "#e76f51")
+```
+
+## Clean up dataframe and export as csv
+```{r}
+
+# selecting variables needed for SAM simulation
+pid_site_coords <- pid_data |>
+  select(c(p_cap, centroid)) |> 
+  mutate(centroid = st_transform(centroid, crs = 4269))
+
+# cleaning the data to just have lat/lon and WID
+pid_coords <- pid_site_coords |> 
+  mutate(PID = row_number()) |> 
+  mutate(lon = unlist(map(pid_site_coords$centroid,1)),
+         lat = unlist(map(pid_site_coords$centroid,2))) |> 
+  select(c(PID, p_cap, lon, lat)) |> 
+  st_drop_geometry()
+
+# export as csv
+write.csv(pid_coords, paste0(path, "us_PID_cords.csv"), row.names = FALSE)
+
+```
+
