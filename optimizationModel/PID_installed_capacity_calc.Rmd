@@ -1,0 +1,80 @@
+---
+title: "Potential Installed Capacity"
+author: "Michelle Lam"
+date: "2023-05-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+# Read in the data
+```{r}
+setwd("/Users/michelle/Documents/UCSB Grad School/Courses/eds_411/optimization/data")
+
+# read in the data
+PID <- read_csv("./US_pids_GEAs.csv")
+```
+
+# Add columns to data frame
+```{r}
+PID_updated <- PID |> 
+  filter(!is.na(t_cap)) |> 
+  mutate(p_cap_kw = t_cap*t_count, # calc p_cap in kw
+         p_cap_mw = p_cap_kw/1000, # calc p_cap in mw
+         solar_installed_cap_mw = round(p_cap_mw*(50/3),3)) # calc solar insalled cap at each PID
+
+# get mean p_cap_mw to put into PIDS without t_cap/system size
+PID_updated_summary <- PID_updated |> 
+  summarize(avg_p_cap_mw= mean(p_cap_mw))
+
+# store the average p_cap_mw as single value
+avg_p_cap <- as.numeric(PID_updated_summary[1, "avg_p_cap_mw"])
+
+# see which PIDs don't have t_cap/system size, add average sizes in 
+PID_na <- PID |> 
+  filter(is.na(t_cap)) |> 
+  mutate(p_cap_kw = avg_p_cap*1000,
+         p_cap_mw = avg_p_cap,
+         solar_installed_cap_mw = round(avg_p_cap*(50/3),3))
+
+# combine PID_updated (df without NAs) and PID_na (df with NAs and avg values)
+PID_clean <- rbind(PID_updated, PID_na) 
+
+# order the PID_clean dataframe by PID
+PID_clean <- PID_clean[order(PID_clean$PID),]
+```
+
+# Create csv of installed solar capacity at each site
+```{r}
+# create dataframe of just the PIDs solar installed capacity
+solar_cf_by_PID <- PID_clean |> 
+  select(c(PID,solar_installed_cap_mw))
+
+write_csv(solar_cf_by_PID,"potentialInstalledCapacity/solar_land_capacity.csv") 
+
+# create dataframe of just first 5 PIDs for testing
+solar_cf_by_PID_test <- PID_clean |> 
+  select(c(PID,solar_installed_cap_mw)) |> 
+  filter(PID <= 5)
+
+#write_csv(solar_cf_by_PID_test,"../PIDTestData/potentialInstalledCapacity/solar_land_capacity_test.csv") 
+```
+
+# Create csv of installed wind capacity at each site (existing wind project sizes)
+```{r}
+# create dataframe of just the PIDs wind installed capacity
+wind_cf_by_PID <- PID_clean |> 
+  select(c(PID,p_cap_mw))
+
+write_csv(wind_cf_by_PID,"potentialInstalledCapacity/wind_land_capacity.csv") 
+
+# create dataframe of just first 5 PIDs for testing
+wind_cf_by_PID_test <- PID_clean|> 
+  select(c(PID,p_cap_mw)) |> 
+  filter(PID <= 5)
+
+#write_csv(wind_cf_by_PID_test,"../PIDTestData/potentialInstalledCapacity/wind_land_capacity_test.csv")
+```
+
