@@ -27,7 +27,7 @@ thisDir = os.path.dirname(r"/Users/colleenmccamy/Documents/MEDS/Capstone/code/sa
 print('Working directory:    ', thisDir)
 site.addsitedir(thisDir)
 
-import SAMassumptions_hourly_wind_vestas90_updated
+import SAMassumptions_hourly_wind
 
 # saving the windtoolkit data folder w/out the year
 # wtk_folder_path = r'C:\Code\sam-generation\wind\data\meteorologicalData_'
@@ -42,7 +42,7 @@ Reading in the SAM Assumptions
 ============================ '''
 
 # saving assmptions as a techAssumptions dictionary
-techAssumptions_dict = {"onshore_wind" : SAMassumptions_hourly_wind_vestas90_updated.onshoreWind}
+techAssumptions_dict = {"onshore_wind" : SAMassumptions_hourly_wind.onshoreWind}
 tech = "onshore_wind"
 colNamePrefix = "CF_status" 
 
