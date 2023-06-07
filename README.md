@@ -8,6 +8,8 @@ The repository is structured so that each phase is housed in a separate folder:
 
 This repository also includes a structure diagram, `solar_wind_ratios_repo_diagram.pdf`. This diagram includes the structure of how data objects were stored locally for reproducibility and ease of use. 
 
+This repository also includes a `environment.yml` file to set up Anaconda Navigator environments for reproducibility.  
+
 ### dataCleaningProcessing
 This folder houses the `converting_wind_data_to_PIDs.Rmd` that walks users through obtaining point coordinates for existing wind projects. These point coordinates are used in the next step to obtain meteorological data and simulated energy production for wind and solar PV at existing wind project.
 
