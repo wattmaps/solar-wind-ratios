@@ -64,6 +64,7 @@ def onshoreWind(homePath, lat_in, lon_in, data_in):
     ssc.data_set_number( data, b'turb_specific_loss', 0.81000000000000005 )
     ssc.data_set_number( data, b'adjust:constant', 0 )
     ssc.data_set_number( data, b'total_uncert', 12.085000000000001 )
+    # update the file path so it points to solar-wind-ratios/data/SAM/wind_grid_curtailment.csv on your local computer
     ssc.data_set_array_from_csv( data, b'grid_curtailment', fn = b'/Users/colleenmccamy/Documents/MEDS/Capstone/code/sam-generation/wind/grid_curtailment.csv');
     ssc.data_set_number( data, b'enable_interconnection_limit', 0 )
     ssc.data_set_number( data, b'grid_interconnection_limit_kwac', 100000 )

@@ -22,8 +22,12 @@ import socket
 import time
 
 
+current_dir = os.getcwd()
+#current_dir should be your local path to the solar-wind-ratios folder
+print(current_dir)
+
 # defining a working directory
-thisDir = os.path.dirname(r"/Users/colleenmccamy/Documents/MEDS/Capstone/code/sam-generation/wind/data")
+thisDir = os.path.join(current_dir, 'capacityFactorSimulations/wind')
 print('Working directory:    ', thisDir)
 site.addsitedir(thisDir)
 
@@ -50,8 +54,8 @@ colNamePrefix = "CF_status"
 1. Select range of PIDs to run
 ============================ '''
 
-PID_start = 423
-PID_end = PID_start + 913
+PID_start = 1
+PID_end = PID_start + 1335
 
 
 ''' ============================
@@ -59,6 +63,7 @@ Loading API Keys from Environment File
 ============================ '''
 
 ### Retrieving the dot env path
+# store your API key in a .env file located inside the capacityFactorSimulations folder
 dotenv_path = os.path.join(os.path.dirname(thisDir), ".env")
 
 ### Reading data from .env file
@@ -129,7 +134,7 @@ Read csv of candidate project areas lat/longs
 ## NOTE: CHANGE THIS IF YOUR LAT/LONG FILE IS SAVED TO A DIFFERENT LOCATION OR HAS A DIFFERENT FILENAME
 
 # read csv of lat-longs as pd df
-loc_filename = r"/Users/colleenmccamy/Documents/MEDS/Capstone/code/sam-generation/wind/data/capacityFactor_2012/us_PID_cords_2012_359.csv" # change this to file location of us_PID_cords.csv
+loc_filename = os.path.join(current_dir, 'data/us_PID_cords.csv')
 df_loc = pd.read_csv(loc_filename)
 #df_url = df_loc
 
@@ -140,6 +145,9 @@ if colNamePrefix not in df_loc.columns:
     print("adding new columns for hourly capacity factors")
     new_cols = [f'cf_hour_{i}' for i in range(8760)]
     df_loc = df_loc.reindex(columns = df_loc.columns.tolist() + new_cols)
+
+# create a file path to where you want to save the simulation output for a given year
+output_filename = current_dir + "/data/SAM/SAM_wind_" + year + ".csv"
 
 ''' ============================
 Function that runs a single simulation given an PID
@@ -162,7 +170,7 @@ def runSimulation(PID):
         The following section shows how to download Windtoolkit data for a specified year and location.
         '''
         ## Windtoolkit weather srw filename on local drive
-        wtk_wf_folder = "/Users/colleenmccamy/Documents/MEDS/Capstone/code/sam-generation/wind/data/timeSeries_" + year
+        wtk_wf_folder = current_dir + "/data/Windtoolkit/windTimeSeries" + year
         wtk_wf = wtk_wf_folder  + "/wind_" + year + "_" + str(PID) + ".srw"
         
         ## If there is no csv saved for this PID, then get it using the API
@@ -228,20 +236,20 @@ def runSimulationLoop(PID_list):
                 #print(i)
                 runSimulation(PID)
                 if i == 300:
-                    df_loc.to_csv(loc_filename, index=False)
+                    df_loc.to_csv(output_filename, index=False)
                     print("Saved to file")
                     i = 0
             except Exception as exc:
                 print(exc)
                 ## save CSV to file
-                df_loc.to_csv(loc_filename, index=False)
+                df_loc.to_csv(output_filename, index=False)
                 ## PAUSE
                 time.sleep(5)
                 continue
             break
              
     ## save CSV to file
-    df_loc.to_csv(loc_filename, index=False)
+    df_loc.to_csv(output_filename, index=False)
     
 ''' ============================
 6. Run functions

@@ -14,6 +14,10 @@ import time
 
 
 current_dir = os.getcwd()
+#current_dir should be your local path to the solar-wind-ratios folder
+print(current_dir)
+
+# defining a working directory
 thisDir = os.path.join(current_dir, 'capacityFactorSimulations/solarPV')
 print('Working directory:  ', thisDir)
 site.addsitedir(thisDir)

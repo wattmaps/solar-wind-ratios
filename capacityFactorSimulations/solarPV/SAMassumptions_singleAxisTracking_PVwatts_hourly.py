@@ -53,6 +53,7 @@ def singleAxisTracking(homePath, lat_in, lon_in, timezone_in, elevation_in, df_d
 	ssc.data_set_number( data, b'inv_eff', 98 )
 	ssc.data_set_number( data, b'batt_simple_enable', 0 )
 	ssc.data_set_number( data, b'adjust:constant', 0 )
+	# update the file path so it points to solar-wind-ratios/data/SAM/solar_grid_curtailment.csv on your local computer
 	ssc.data_set_array_from_csv( data, b'grid_curtailment', fn = b'C:\Code\sam-generation\solar\Python Scripts\grid_curtailment.csv');
 	ssc.data_set_number( data, b'enable_interconnection_limit', 0 )
 	ssc.data_set_number( data, b'grid_interconnection_limit_kwac', 100000 )
