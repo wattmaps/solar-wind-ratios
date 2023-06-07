@@ -17,18 +17,12 @@ library(tmaptools)
 library(tictoc)
 library(tidyverse)
 
-path <- "/Users/colleenmccamy/Documents/MEDS/Capstone/data/"
 ```
 
 ## Read in the Wind Data
 ```{r}
 # reading in shapefile from power of place
-old_exisiting_wind <- st_read("/Users/colleenmccamy/Documents/MEDS/Capstone/data/united_states_wind_turbines/uswtdb_v5_3_20230113/uswtdb_v5_3_20230113.shp")
-
-#crs(old_exisiting_wind) # checking to see that it is in NAD83 crs
-
-# reading in shapefile from power of place
-wind_proj <- read_csv(paste0(path,                "exisitingWindContUS/uswtdb_v4_3_20220114_ucsb.csv"))
+wind_proj <- read_csv(here::here('data', 'uswtdb_v4_3_20220114_ucsb.csv'))
 
 # adding spatial coordintates to the dataframe
 wind_proj_geom <- st_as_sf(wind_proj,
@@ -54,7 +48,7 @@ tm_shape(wind_proj_contiguous) +
    tm_layout(main.title = "Exisiting Wind Sites in the Contiguous U.S.")
 
 # export US points as shapefile
-#st_write(wind_proj_contiguous, paste0(path, "existing_wind_contiguous_us.shp"))
+#st_write(wind_proj_contiguous, here::here('data', 'existing_wind_contiguous_us.shp'))
 ```
 
 ## Finding Centroid for Each Project
@@ -103,7 +97,7 @@ pid_coords <- pid_site_coords |>
   st_drop_geometry()
 
 # export as csv
-write.csv(pid_coords, paste0(path, "us_PID_cords.csv"), row.names = FALSE)
+write.csv(pid_coords, here::here('data', 'us_PID_cords.csv'), row.names = FALSE)
 
 ```
 

@@ -1,0 +1,6 @@
+*.env
+*.csv
+**/.DS_Store
+*.srw
+.Rproj.user
+*.gdb

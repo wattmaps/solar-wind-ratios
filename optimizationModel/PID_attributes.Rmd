@@ -15,7 +15,7 @@ library(nngeo) # for transmission substation KNN analysis
 Load point coordinates of existing wind projects in the U.S.: 
 ```{r}
 # Read tabular data frame
-us_pids <- read_csv(here::here('us_PID_cords_PID1335.csv'))
+us_pids <- read_csv(here::here('data','us_PID_cords_PID1335.csv'))
 us_pids <- as.data.frame(us_pids) 
 # Convert to shapefile data frame with CRS as NAD83
 us_pids_geom <- st_as_sf(us_pids, coords = c('lon', 'lat'), crs = 4269)
@@ -24,11 +24,11 @@ us_pids_geom <- st_as_sf(us_pids, coords = c('lon', 'lat'), crs = 4269)
 # NREL Cambium Tool
 ```{r}
 # Read tabular data frame
-ReEDS <- read_csv(here::here('ReEDS_mapping.csv')) %>%
+ReEDS <- read_csv(here::here('data','ReEDS_mapping.csv')) %>%
   rename(pca = r) %>% mutate(pca = as.factor(pca))
 
 # Read vector shapefile data
-ReEDS_map <- st_read(here::here('reeds_shapefiles_08032021', 'US_Canada_Map.shp'))
+ReEDS_map <- st_read(here::here('data','reeds_shapefiles_08032021', 'US_Canada_Map.shp'))
 ```
 
 ```{r}
@@ -74,13 +74,13 @@ pids_gea_df <- pids_gea_df %>%
          lat = unlist(map(pids_gea_df$geometry, 2))) %>%
   st_drop_geometry()
 
-write.csv(pids_gea_df, here::here('US_pids_GEAs.csv'), row.names = FALSE)
+write.csv(pids_gea_df, here::here('data','US_pids_GEAs.csv'), row.names = FALSE)
 ```
 
 # Homeland Infrastructure Foundation-Level Data
 ```{r}
 # Read geodatabase as shapefile data frame
-substation <- st_read(here::here('Electric_Substations.gdb')) %>%
+substation <- st_read(here::here('data','Electric_Substations.gdb')) %>%
   # Set CRS of object to NAD83
   st_transform(4269) %>% 
   # Set CRS of polygon to NAD83
@@ -146,5 +146,5 @@ substation_pids_df <- substation_pids_dist %>%
   st_drop_geometry() %>%
   dplyr::select(-c(SID_geom))
 
-write.csv(substation_pids_df, here::here('substation_pids.csv'), row.names = FALSE)
+write.csv(substation_pids_df, here::here('data','substation_pids.csv'), row.names = FALSE)
 ```
