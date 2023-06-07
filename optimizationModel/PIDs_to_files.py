@@ -12,12 +12,14 @@ print(current_dir)
 ### -----------------------
 # Reading in the yearly data & setting folder path
 ### -----------------------
-# Load data from both years
+# Load data from all years
+# to get a file per PID for the solar data change the file paths below to 'data/SAM/SAM_solar_2012.csv', 'data/SAM/SAM_solar_2013.csv', 'data/SAM/SAM_solar_2014.csv',
 df_cf_2012 = pd.read_csv(os.path.join(current_dir, 'data/SAM/SAM_wind_2012.csv'))
 df_cf_2013 = pd.read_csv(os.path.join(current_dir, 'data/SAM/SAM_wind_2013.csv'))
 df_cf_2014 = pd.read_csv(os.path.join(current_dir, 'data/SAM/SAM_wind_2014.csv'))
 
 # Define the folder where the output files will be saved
+# for solar define the folder to the 'data/solarCapacityFactorFilePerPID' file path
 folder = os.path.join(current_dir, 'data/windCapacityFactorFilePerPID')
 
 ### -----------------------
