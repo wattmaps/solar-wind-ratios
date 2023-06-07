@@ -24,11 +24,11 @@ us_pids_geom <- st_as_sf(us_pids, coords = c('lon', 'lat'), crs = 4269)
 # NREL Cambium Tool
 ```{r}
 # Read tabular data frame
-ReEDS <- read_csv(here::here('data','ReEDS_mapping.csv')) %>%
+ReEDS <- read_csv(here::here('data','ReEDS','ReEDS_mapping.csv')) %>%
   rename(pca = r) %>% mutate(pca = as.factor(pca))
 
 # Read vector shapefile data
-ReEDS_map <- st_read(here::here('data','reeds_shapefiles_08032021', 'US_Canada_Map.shp'))
+ReEDS_map <- st_read(here::here('data','ReEDS','reeds_shapefiles_08032021', 'US_Canada_Map.shp'))
 ```
 
 ```{r}
