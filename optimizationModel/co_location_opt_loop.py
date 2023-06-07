@@ -20,8 +20,12 @@ import cplex
 import time
 start_time = time.time()
 
+current_dir = os.getcwd()
+#current_dir should be your local path to the solar-wind-ratios folder
+print(current_dir)
+
 # Define input folder
-inputFolder = '/Users/michelle/Documents/UCSB Grad School/Courses/eds_411/optimization/data'
+inputFolder = os.path.join(current_dir, 'data')
 
 ## ================
 ## SET SOLVER
@@ -175,12 +179,12 @@ def runOptimization(PID):
 
 
     ## SOLAR AND WIND CAPACITY FACTORS (VECTOR)
-    cf_s_path = inputFolder + "/solar_capacityFactor_filePerPID" + "/capacity_factor_PID" + str(PID) + ".csv"
+    cf_s_path = inputFolder + "/solarCapacityFactorFilePerPID" + "/capacity_factor_PID" + str(PID) + ".csv"
     cf_s_df = pd.read_csv(cf_s_path)
     ## subset to only the capacity factor column
     cf_only_s_df = cf_s_df.loc[:,"energy_generation"]
 
-    cf_w_path = inputFolder + "/wind_capacityFactor_filePerPID" + "/capacity_factor_PID" + str(PID) + ".csv"
+    cf_w_path = inputFolder + "/windCapacityFactorFilePerPID" + "/capacity_factor_PID" + str(PID) + ".csv"
     cf_w_df = pd.read_csv(cf_w_path)
     ## subset to only the capacity factor column
     cf_only_w_df = cf_w_df.loc[:,"energy_generation"]

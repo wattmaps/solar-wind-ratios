@@ -5,19 +5,23 @@ import pandas as pd
 import os
 import time as time
 
+current_dir = os.getcwd()
+#current_dir should be your local path to the solar-wind-ratios folder
+print(current_dir)
+
 ### -----------------------
 # Reading in the yearly data & setting folder path
 ### -----------------------
 # Load data from both years
-df_cf_2012 = pd.read_csv('/Users/avidalmeza/Downloads/wind/capacityFactor_2012/us_PID_cords_2012.csv')
-df_cf_2013 = pd.read_csv('/Users/avidalmeza/Downloads/wind/capacityFactor_2013/us_PID_cords_2013.csv')
-df_cf_2014 = pd.read_csv('/Users/avidalmeza/Downloads/wind/capacityFactor_2014/us_PID_cords_2014.csv')
+df_cf_2012 = pd.read_csv(os.path.join(current_dir, 'data/SAM/SAM_wind_2012.csv'))
+df_cf_2013 = pd.read_csv(os.path.join(current_dir, 'data/SAM/SAM_wind_2013.csv'))
+df_cf_2014 = pd.read_csv(os.path.join(current_dir, 'data/SAM/SAM_wind_2014.csv'))
 
 # Define the folder where the output files will be saved
-folder = '/Users/avidalmeza/Downloads/wind_capacityFactor_filePerPID'
+folder = os.path.join(current_dir, 'data/windCapacityFactorFilePerPID')
 
 ### -----------------------
-# Reshaping the data & reading it as a csv for each FID
+# Reshaping the data & reading it as a csv for each PID
 ### -----------------------
 
 # initializing the counter variable
