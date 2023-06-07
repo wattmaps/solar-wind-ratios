@@ -21,7 +21,7 @@ import time
 start_time = time.time()
 
 # Define input folder
-inputFolder = '/Users/michelle/Documents/UCSB Grad School/Courses/eds_411/optimization/FID1TestData'
+inputFolder = '/Users/michelle/Documents/UCSB Grad School/Courses/eds_411/optimization/data'
 
 ## ================
 ## SET SOLVER
@@ -62,19 +62,28 @@ if solver == "ipopt":
     assert(shutil.which("ipopt") or os.path.isfile("ipopt"))
     opt = SolverFactory("ipopt")
 
+# create a pandas dataframe with column names
+output_df = pd.DataFrame(columns=["PID", "solar_capacity", "wind_capacity", "solar_wind_ratio", "tx_capacity", "revenue", "cost", "profit"])
+# create the sequence for PIDs, total 1335 PIDS
+seq = list(range(1, 1336))
+# add the sequence to the PID column in the df
+output_df['PID'] = seq
+# save the df as a csv 
+#output_df.to_csv(os.path.join(inputFolder, "model_results.csv"), index=False)
 # read in model_results.csv as a dataframe
 output_df_path = os.path.join(inputFolder, "model_results.csv")
-output_df = pd.read_csv(output_df_path, engine = 'python')
+#output_df = pd.read_csv(output_df_path, engine = 'python')
 
 ## =================================================
-## FUNCTION THAT RUNS OPTIMIZATION FOR A SINGLE WID
+## FUNCTION THAT RUNS OPTIMIZATION FOR A SINGLE PID
 ## =================================================
 
-def runOptimization(WID):
+def runOptimization(PID):
     ## ================
     ## SET PARAMETERS
     ## ================
 
+    print("PID: ", PID)
     ## CAPITAL AND O&M COSTS (SCALARS)
     # Define capital expenditure for wind and solar (scalar, in USD/MW)
     capEx_w = (950+700)/2*1000 
@@ -90,6 +99,8 @@ def runOptimization(WID):
     # Solar: https://www.energy.gov/eere/solar/federal-solar-tax-credits-businesses
     PTC_wind = 26 
     PTC_solar = 27.5 
+    # if you set PTC to 0, results will say to not install any solar
+    # recent $27/MWh federal incentive for solar
 
 
     ## CRF (SCALAR)
@@ -107,7 +118,12 @@ def runOptimization(WID):
     # Define per MW for total transmission costs per MW
     sub = 7609776/200 ##per 200 MW so divide by 200 to get per MW
     # Define kilometers for total transmission costs per MW
-    km = 100 #km
+    # read in file that has PIDs and corresponding distance to closest substation 115kV or higher
+    pid_substation_file = os.path.join(inputFolder, "substation_pids.csv")
+    pid_substation_df = pd.read_csv(pid_substation_file)
+    # determine which GEA the PID entered into the function belongs to
+    km = pid_substation_df.loc[pid_substation_df['PID'] == PID, 'distance_km'].values[0]
+    #km = 7.121745 #km
     # Define total transmission costs per MW (scalar)
     totalTx_perMW = i*km+sub ## USD per MW cost of tx + substation
 
@@ -116,48 +132,62 @@ def runOptimization(WID):
 
 
     ## WHOLESALE ELECTRICITY PRICES (VECTOR)
-    # Set file path and read csv file for wholesale electricity prices 
-    ePrice_path = os.path.join(inputFolder, "Cambium22_Electrification_hourly_ERCTc_2030.csv")
+    # read in file that has PIDs and corresponding GEAs
+    pid_gea_file = os.path.join(inputFolder, "US_pids_GEAs.csv")
+    pid_gea_df = pd.read_csv(pid_gea_file)
+
+    # determine which GEA the PID entered into the function belongs to
+    gea = pid_gea_df.loc[pid_gea_df['PID'] == PID, 'gea'].values[0]
+
+    # Set folder path where wholesale electricity prices are for each GEA
+    ePrice_df_folder = os.path.join(inputFolder, "cambiumHourlyPrice2030")
+
+    # set path for electricity prices file for the specified GEA
+    ePrice_path = ePrice_df_folder + "/Cambium22_Electrification_hourly_" + gea + "_2030.csv"
+    
+    # read in the electricity prices csv for the specified GEA and remove the top 5 rows which are not necessary
     ePrice_df = pd.read_csv(ePrice_path, skiprows=5)
     #ePrice_df.columns.values
     # Extract "total_cost_enduse" column to get prices in USD/MWh for wholesale electricity prices
     ePrice_df = ePrice_df["total_cost_enduse"]
 
+    #to get 3 years worth of prices, repeat the total_cost_enduse data 2 more times
+    ePrice_df_3_years = pd.concat([ePrice_df, ePrice_df, ePrice_df], axis = 0, ignore_index = True)
 
     ## WHOLESALE ELECTRICITY PRICES FOR SOLAR AND WIND(VECTOR)
     # Define wholesale electricity price for solar (vector, in USD/MWh)
     # Adding tax credit to price of solar
-    ePrice_df_solar = ePrice_df+PTC_solar
+    ePrice_df_solar = ePrice_df_3_years+PTC_solar
     # Define wholesale electricity price for wind (vector, in USD/MWh)
-    ePrice_df_wind = ePrice_df+PTC_wind 
+    ePrice_df_wind = ePrice_df_3_years+PTC_wind 
 
 
     ## SOLAR AND WIND POTENTIAL CAPACITY (SCALAR)
     # Set file path and read csv file for potential capacity for solar
-    cap_s_path = os.path.join(inputFolder, "potentialInstalledCapacity", "texas_solar_land_capacity_FID1-10.csv") #replace with land capacity file for solar
+    cap_s_path = os.path.join(inputFolder, "potentialInstalledCapacity", "solar_land_capacity.csv") #replace with land capacity file for solar
     cap_s_df = pd.read_csv(cap_s_path)
-    cap_s = cap_s_df.loc[cap_s_df['FID'] == WID, 'solar_land_capacity_mw'].iloc[0]
+    cap_s = cap_s_df.loc[cap_s_df['PID'] == PID, 'solar_installed_cap_mw'].iloc[0]
 
     # Set file path and read csv file for potential capacity for wind
-    cap_w_path = os.path.join(inputFolder, "potentialInstalledCapacity", "texas_wind_land_capacity_FID1-10.csv") # replace with land capacity file for wind
+    cap_w_path = os.path.join(inputFolder, "potentialInstalledCapacity", "wind_land_capacity.csv") # replace with land capacity file for wind
     cap_w_df = pd.read_csv(cap_w_path)
-    cap_w = cap_w_df.loc[cap_w_df['FID'] == WID, 'wind_land_capacity_mw'].iloc[0]
+    cap_w = cap_w_df.loc[cap_w_df['PID'] == PID, 'p_cap_mw'].iloc[0]
 
 
     ## SOLAR AND WIND CAPACITY FACTORS (VECTOR)
-    cf_s_path = inputFolder + "/solarHourlyCF" + "/capacity_factor_FID" + str(WID) + ".csv"
+    cf_s_path = inputFolder + "/solar_capacityFactor_filePerPID" + "/capacity_factor_PID" + str(PID) + ".csv"
     cf_s_df = pd.read_csv(cf_s_path)
-    ## subset to only the first year of data
-    cf_s_df_yr1 = cf_s_df.loc[0:8759]["energy_generation"]
+    ## subset to only the capacity factor column
+    cf_only_s_df = cf_s_df.loc[:,"energy_generation"]
 
-    cf_w_path = inputFolder + "/windHourlyCF" + "/capacityFactor_FID" + str(WID) + ".csv"
+    cf_w_path = inputFolder + "/wind_capacityFactor_filePerPID" + "/capacity_factor_PID" + str(PID) + ".csv"
     cf_w_df = pd.read_csv(cf_w_path)
-    ## subset to only the first year of data
-    cf_w_df_yr1 = cf_w_df.loc[0:8759]["Energy Generation"]
+    ## subset to only the capacity factor column
+    cf_only_w_df = cf_w_df.loc[:,"energy_generation"]
 
 
     ## Generate the large parameter that will always be greater than curtailment for creating the binary variable
-    largeVal =(cap_w + cap_s)*1.1
+    #largeVal =(cap_w + cap_s)*1.1
 
 
     ## ===============
@@ -186,7 +216,7 @@ def runOptimization(WID):
     ## ===============
 
     ## HOUR:
-    hour = cf_s_df.loc[0:8759]["hour"].tolist()
+    hour = cf_s_df.loc[:,"hour"].tolist()
 
     # Add hour list to model
     model.t = Set(initialize=hour)
@@ -209,14 +239,14 @@ def runOptimization(WID):
 
     ## CAPACITY FACTORS ---
     # wind cf (vector):
-    wind_cf_hourly = next(iter(pyomoInput_dfVectorToDict(cf_w_df_yr1, "hour", hour).values()))
+    wind_cf_hourly = next(iter(pyomoInput_dfVectorToDict(cf_only_w_df, "hour", hour).values()))
     # test:
     #wind_cf_hourly[1000]
     # set parameter
     model.cf_wind = Param(model.t, default = wind_cf_hourly)
 
     # solar cf (vector):
-    solar_cf_hourly = next(iter(pyomoInput_dfVectorToDict(cf_s_df_yr1, "hour", hour).values()))
+    solar_cf_hourly = next(iter(pyomoInput_dfVectorToDict(cf_only_s_df, "hour", hour).values()))
     # test:
     #olar_cf_hourly[1000]
     # set parameter
@@ -261,7 +291,7 @@ def runOptimization(WID):
 
     # define objective function: maximize profit
     def obj_rule(model):
-        return sum(model.actualGen[t]*model.eprice_solar[t] for t in model.t) - model.cost
+        return model.revenue - model.cost
     model.obj = Objective(rule=obj_rule, sense=maximize)
 
 
@@ -271,12 +301,14 @@ def runOptimization(WID):
 
     ## Constraint (1) ---
     ## Define potential generation = equal to CF*capacity for wind and solar
+    # combines both forms of generation
     def potentialGeneration_rule(model, t):
         return model.potentialGen[t] == model.cf_solar[t]*model.solar_capacity + model.cf_wind[t]*model.wind_capacity
     model.potentialGeneration = Constraint(model.t, rule=potentialGeneration_rule)
 
     ## Constraint (2) ---
     ## Define actual generation is less than or equal to potential generation
+    # how much is actually being delivered to the grid, less than the tx constraint
     def actualGenLTEpotentialGen_rule(model, t):
         return model.actualGen[t] <= model.potentialGen[t]
     model.actualGenLTEpotentialGen = Constraint(model.t, rule = actualGenLTEpotentialGen_rule)
@@ -309,8 +341,10 @@ def runOptimization(WID):
 
     ## CONSTRAINT (6) ---
     ## Define annual revenue
+    # taking the total generation of wind and solar and multiply by price of solar (choose price of solar or wind)
+    # divide by 3 to get annual revenue when running for 3 years, get annual average revenue over 3 years
     def annualRevenue_rule(model):
-        return model.revenue == sum(model.actualGen[t]*model.eprice_solar[t] for t in model.t)
+        return model.revenue == sum(model.actualGen[t]*model.eprice_solar[t] for t in model.t)/3
     model.annualRevenue = Constraint(rule=annualRevenue_rule)
 
     ## transmission capacity is less than wind capacity 
@@ -320,6 +354,7 @@ def runOptimization(WID):
 
     ## CONSTRAINT (7) ---
     ## Check that transmission capacity is less than wind capacity 
+    # will always size tx capacity to wind capacity, never undersizes so could change tx_capacity == wind_capacity
     def tx_wind_rule(model):
         return model.tx_capacity <= model.wind_capacity #+ model.solar_capacity
     model.tx_wind = Constraint(rule=tx_wind_rule)
@@ -342,30 +377,22 @@ def runOptimization(WID):
     profit = model_instance.obj()
     solar_wind_ratio = solar_capacity/wind_capacity
 
-    output_df.loc[output_df['WID']== WID] = [WID, solar_capacity, wind_capacity, solar_wind_ratio, tx_capacity, revenue, cost, profit]
+    output_df.loc[output_df['PID']== PID] = [PID, solar_capacity, wind_capacity, solar_wind_ratio, tx_capacity, revenue, cost, profit]
 
 
-# create a pandas dataframe with column names
-#output_df = pd.DataFrame(columns=["WID", "solar_capacity", "wind_capacity", "solar_wind_ratio", "tx_capacity", "revenue", "cost", "profit"])
-# create the sequence for WIDs
-#seq = list(range(1, 2008))
-# add the sequence to the WID column in the df
-#output_df['WID'] = seq
-# save the df as a csv 
-#output_df.to_csv(os.path.join(inputFolder, "model_results.csv"), index=False)
 
 ## ====================================================
-## FUNCTION THAT RUNS OPTIMIZATION GIVEN A LIST OF WIDS
+## FUNCTION THAT RUNS OPTIMIZATION GIVEN A LIST OF PIDS
 ## ====================================================
 
-def runOptimizationLoop(WID_list):
+def runOptimizationLoop(PID_list):
     i = 0 
-    for WID in WID_list:
+    for PID in PID_list:
         while True:
             try: 
                 i = i + 1
                 #print(i)
-                runOptimization(WID)
+                runOptimization(PID)
                 if i == 300:
                     output_df.to_csv(output_df_path, index=False)
                     print("Saved to file")
@@ -375,8 +402,8 @@ def runOptimizationLoop(WID_list):
                 ## save CSV to file
                 output_df.to_csv(output_df_path, index=False)
                 ## PAUSE
-                time.sleep(5)
-                continue
+                #time.sleep(5)
+                #continue
             break  
         
     ## save CSV to file
@@ -385,10 +412,10 @@ def runOptimizationLoop(WID_list):
 ## ======================
 ## RUN OPTIMIZATION LOOP
 ## ======================
-WID_start = 1
-WID_end = WID_start + 2
+PID_start = 168
+PID_end = PID_start + 1168
 start_time = time.time()
-WID_list_in = list(range(WID_start,WID_end,1))
-runOptimizationLoop(WID_list_in)  
+PID_list_in = list(range(PID_start,PID_end,1))
+runOptimizationLoop(PID_list_in)  
 end_time = time.time()
 print("Time taken:", end_time - start_time, "seconds") # Print how long it takes to run the loop 
