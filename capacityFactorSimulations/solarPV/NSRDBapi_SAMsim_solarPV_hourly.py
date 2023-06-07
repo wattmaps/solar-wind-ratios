@@ -12,12 +12,13 @@ import time
 from datetime import datetime
 import time
 
-#path = r"C:\Code\sam-generation\solar\"
-thisDir = os.path.dirname(r"C:\Code\sam-generation\solar\data")
+
+current_dir = os.getcwd()
+thisDir = os.path.join(current_dir, 'capacityFactorSimulations/solarPV')
 print('Working directory:  ', thisDir)
 site.addsitedir(thisDir)
 
-import SAMassumptions_singleAxisTracking_PVwatts_hourly_vm_3
+import SAMassumptions_singleAxisTracking_PVwatts_hourly
 ''' ============================
 -1. Choose whether to save the NSRDB weather file to local drive
 ============================ ''' 
@@ -30,7 +31,7 @@ save = "yes"
 
 tech = "tracking_PVwatts" 
 
-techAssumptions_dict = {"tracking_PVwatts" : SAMassumptions_singleAxisTracking_PVwatts_hourly_vm_3.singleAxisTracking}
+techAssumptions_dict = {"tracking_PVwatts" : SAMassumptions_singleAxisTracking_PVwatts_hourly.singleAxisTracking}
 
 colNamePrefix = "CF_status"
 
@@ -63,7 +64,8 @@ your_affiliation = 'UCSB'
 your_email = 'avidalmeza@bren.ucsb.edu'
 
 # You must request an NSRDB api key 
-dotenv_path = os.path.join(os.path.dirname(thisDir), ".env")
+# store your API key in a .env file located inside the capacityFactorSimulations folder
+dotenv_path = os.path.join(os.path.dirname(thisDir), ".env") 
 load_dotenv(dotenv_path)
 COLLEEN_API = os.getenv('nrel_colleen2')
 ALESSANDRA_API = os.getenv('nrel_alessandra')
@@ -93,7 +95,7 @@ utc = 'false'
 ============================ '''
 
 ## CHANGE THIS IF YOUR LAT/LONG FILE IS SAVED TO A DIFFERENT LOCATION OR HAS A DIFFERENT FILENAME # (CHANGED FOR DIFFERENT PIDs)
-loc_filename = f'C:\\Code\\sam-generation\\solar\\data\\capacityFactor_2014\\us_PID_cords_2014.csv'
+loc_filename = os.path.join(current_dir, 'data/us_PID_cords.csv')
 
 df_loc = pd.read_csv(loc_filename, engine = 'python')
 
@@ -105,6 +107,8 @@ if colNamePrefix not in df_loc.columns:
     new_cols = [f'cf_hour_{i}' for i in range(8760)]
     df_loc = df_loc.reindex(columns = df_loc.columns.tolist() + new_cols)
     
+# create a file path to where you want to save the simulation output for a given year
+output_filename = current_dir + "/data/SAM/SAM_solar_" + year + ".csv"
 
 ''' ============================
 4. function that runs a single simulation given an PID
@@ -127,8 +131,8 @@ def runSimulation(PID):
         The following section shows how to download NSRDB data for a specified year and location.
         '''
         ## NSRDB weather csv filename on local drive
-        NSRDB_wf_folder = r"C:\Code\sam-generation\solar\data\timeSeries_" + year
-        NSRDB_wf = NSRDB_wf_folder  + "\solar_" + year + "_" + str(PID) + ".csv"
+        NSRDB_wf_folder = current_dir + "/data/NSRDB/solarTimeSeries" + year
+        NSRDB_wf = NSRDB_wf_folder  + "/solar_" + year + "_" + str(PID) + ".csv"
         
         ## If there is no csv saved for this PID, then get it using the API
         if not(os.path.exists(NSRDB_wf)):
@@ -212,20 +216,20 @@ def runSimulationLoop(PID_list):
                 #print(i)
                 runSimulation(PID)
                 if i == 300:
-                    df_loc.to_csv(loc_filename, index=False)
+                    df_loc.to_csv(output_filename, index=False)
                     print("Saved to file")
                     i = 0
             except Exception as exc:
                 print(exc)
                 ## save CSV to file
-                df_loc.to_csv(loc_filename, index=False)
+                df_loc.to_csv(output_filename, index=False)
                 ## PAUSE
                 time.sleep(5)
                 continue
             break
              
     ## save CSV to file
-    df_loc.to_csv(loc_filename, index=False)
+    df_loc.to_csv(output_filename, index=False)
         
 ''' ============================
 6. Run functions
