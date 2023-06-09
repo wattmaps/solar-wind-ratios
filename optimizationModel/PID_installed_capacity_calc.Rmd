@@ -1,8 +1,7 @@
 ---
-title: "Potential Installed Capacity"
-author: "Michelle Lam"
-date: "2023-05-09"
-output: html_document
+title: 'Potential Installed Capacity'
+author: 'https://github.com/wattmaps'
+date: '`r Sys.Date()`'
 ---
 
 ```{r setup, include=FALSE}

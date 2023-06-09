@@ -1,8 +1,7 @@
 ---
-title: "Exisiting Wind Farm Data Wrangling"
-author: "Colleen McCamy"
-date: "2023-02-17"
-output: html_document
+title: 'Exisiting Wind Farm Data Wrangling'
+author: 'https://github.com/wattmaps'
+date: '`r Sys.Date()`'
 ---
 
 ```{r}
