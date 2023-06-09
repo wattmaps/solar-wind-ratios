@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-@author: Ranjit, Grace
-"""
+@author: https://github.com/wattmaps
+""" 
 
 ## ================
 ## LOAD PACKAGES AND LIBRARIES

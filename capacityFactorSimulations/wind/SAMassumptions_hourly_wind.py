@@ -1,3 +1,7 @@
+"""
+@author: https://github.com/wattmaps
+""" 
+
 def onshoreWind(homePath, lat_in, lon_in, data_in):
 
     import PySAM

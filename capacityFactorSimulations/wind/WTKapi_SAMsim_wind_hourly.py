@@ -1,3 +1,6 @@
+"""
+@author: https://github.com/wattmaps
+""" 
 
 ''' ============================
 Importing Packages & Directory

@@ -1,3 +1,7 @@
+"""
+@author: https://github.com/wattmaps
+""" 
+
 def singleAxisTracking(homePath, lat_in, lon_in, timezone_in, elevation_in, df_data_in):
     
 	from PySAM.PySSC import PySSC

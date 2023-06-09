@@ -1,3 +1,7 @@
+"""
+@author: https://github.com/wattmaps
+""" 
+
 ### -----------------------
 # Loading packages & defaults
 ### -----------------------
