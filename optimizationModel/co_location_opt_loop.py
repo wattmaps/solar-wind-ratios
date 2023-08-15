@@ -370,7 +370,7 @@ def runOptimization(PID):
     model.actualGenLTEtxCapacity = Constraint(model.HOURYEAR, rule = actualGenLTEtxCapacity_rule)
 
     ## Constraint (4) ---
-    ## Define annual costs (equation #2) --
+    ## Define lifetime costs (equation #2): solar or wind capEx + solar or wind fixed o&m/CRF (to get the NPV)
     def lifetimeCosts_rule(model):
         return model.cost == model.solar_capacity*model.capEx_s + model.solar_capacity*model.om_s/model.CRF + \
             model.wind_capacity*model.capEx_w + model.wind_capacity*model.om_w/model.CRF + \
