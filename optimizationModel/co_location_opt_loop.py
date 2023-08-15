@@ -92,7 +92,7 @@ def runOptimization(PID):
     # Define capital expenditure for wind and solar (scalar, in USD/MW)
     capEx_w = (950+700)/2*1000 
     capEx_s = (752+618)/2*1000 
-    # Define operations & maintenance costs for wind and solar (scalar, in USD/MWh/yr)
+    # Define operations & maintenance costs for wind and solar (scalar, in USD/MW/yr)
     om_w = (39+34)/2*1000 
     om_s = (13+15)/2*1000 
 
@@ -130,7 +130,12 @@ def runOptimization(PID):
     #km = 7.121745 #km
     # Define total transmission costs per MW (scalar)
     totalTx_perMW = i*km+sub ## USD per MW cost of tx + substation
-
+    
+    
+    ## BATTERY PARAMETERS
+    rtEfficiency_sqrt = sqrt(0.85)
+    
+    ## batterySystemCost ($/kW) = batteryEnergyCost($/kWh)*storageDuration(h) + batteryPowerCost($/kW)
 
     #inputFolder_example = '/Users/michelle/Documents/UCSB Grad School/Courses/eds_411/optimization/processedData/' # used for hour_ID
 
@@ -208,6 +213,20 @@ def runOptimization(PID):
         ## set the index
         df_merged.set_index(i_indexName, inplace = True)
         return df_merged.to_dict()
+    
+    ## ===============
+    ## FUNCTION: Create dictionary from df (matrix)
+    def pyomoInput_matrixToDict(df, i_indexName, j_indexNames_list):
+            
+        ## melt by indicies
+        
+        df_melt = pd.melt(df, id_vars=i_indexName, value_vars=j_indexNames_list)
+        
+        ## melted all the j_indexNames_list into "variable" column --> make this the second index
+        df_melt.set_index([i_indexName, 'variable'], inplace = True)
+        
+        out_df = df_melt.to_dict()["value"]
+        return out_df
 
     ## ================
     ## CREATE MODEL
@@ -224,10 +243,14 @@ def runOptimization(PID):
 
     # Add hour list to model
     model.t = Set(initialize=hour)
-
-    #hourID = "hourID_10p.xls"
-    #hourID_file = os.path.join(inputFolder_example, "bw_byZones_offset_top50", hourID)
-    #hour = pd.read_excel(hourID_file)["hourID"].tolist()
+    
+    ## YEAR index:
+    year = list(range(1, 26))
+    
+    ## Add year list to model
+    model.y = Set(initialize=year)
+    
+    model.HOURYEAR = Set(initialize = model.t * model.y)
 
     ## ================
     ## SET VECTOR PARAMETERS AS DICTIONARIES
@@ -268,6 +291,9 @@ def runOptimization(PID):
     model.capEx_tx = Param(default=totalTx_perMW)
     model.pot_w = Param(default= cap_w)
     model.pot_s = Param(default= cap_s)
+    model.batt_rtEff_sqrt = Param(default = rtEfficiency_sqrt)
+    model.batt_power_cost = Param(default = battPowerCost)
+    model.batt_energy_cost = Param(default = battEnergyCost)
    
 
     ## ================
@@ -278,11 +304,31 @@ def runOptimization(PID):
     model.solar_capacity = Var(within=NonNegativeReals) ## NonNegativeReals or NonNegativeIntegers
     model.wind_capacity = Var(within=NonNegativeReals) 
     model.tx_capacity = Var(within=NonNegativeReals)
+    
+    # Battery variables
+    ## Maximum energy storage of battery
+    model.duration_batt = Var(within=NonNegativeReals)
+    ## Maximum power of battery
+    model.P_batt_max = Var(within=NonNegativeReals)
+    ## Maximum energy of battery
+    model.E_batt_max = Var(within=NonNegativeReals)
+    ## charging power in time t
+    model.P_char_t = Var(model.HOURYEAR)
+    ## discharging power in time t
+    model.P_dischar_t = Var(model.HOURYEAR)
+    ## Energy of battery in time t
+    model.E_batt_t = Var(model.HOURYEAR)
+    ## Losses while charging in time t
+    model.L_char_t = Var(model.HOURYEAR)
+    ## Losses while discharging in time t
+    model.L_dischar_t = Var(model.HOURYEAR)
+    ## Export of electricity to grid in time t
+    model.Export_t = Var(model.HOURYEAR)
 
     # Slack variable potential generation (without considering curtailment)
-    model.potentialGen = Var(model.t)
+    model.potentialGen = Var(model.HOURYEAR)
     # Slack variable actual generation (considering curtailment)
-    model.actualGen = Var(model.t) 
+    model.actualGen = Var(model.HOURYEAR) 
     # Slack variable for hourly revenue
     model.revenue = Var()
     # Slack variable for annual costs
@@ -306,32 +352,34 @@ def runOptimization(PID):
     ## Constraint (1) ---
     ## Define potential generation = equal to CF*capacity for wind and solar
     # combines both forms of generation
-    def potentialGeneration_rule(model, t):
-        return model.potentialGen[t] == model.cf_solar[t]*model.solar_capacity + model.cf_wind[t]*model.wind_capacity
-    model.potentialGeneration = Constraint(model.t, rule=potentialGeneration_rule)
+    def potentialGeneration_rule(model, t, y):
+        return model.potentialGen[t, y] == model.cf_solar[t, y]*model.solar_capacity + model.cf_wind[t,y] * model.wind_capacity
+    model.potentialGeneration = Constraint(model.HOURYEAR, rule=potentialGeneration_rule)
 
     ## Constraint (2) ---
     ## Define actual generation is less than or equal to potential generation
     # how much is actually being delivered to the grid, less than the tx constraint
-    def actualGenLTEpotentialGen_rule(model, t):
-        return model.actualGen[t] <= model.potentialGen[t]
-    model.actualGenLTEpotentialGen = Constraint(model.t, rule = actualGenLTEpotentialGen_rule)
+    def actualGenLTEpotentialGen_rule(model, t, y):
+        return model.actualGen[t, y] <= model.potentialGen[t, y]
+    model.actualGenLTEpotentialGen = Constraint(model.HOURYEAR, rule = actualGenLTEpotentialGen_rule)
 
     ## Constraint (3) ---
     ## Define actual generation must be less than or equal to transmission capacity
-    def actualGenLTEtxCapacity_rule(model, t):
-        return model.actualGen[t] <= model.tx_capacity
-    model.actualGenLTEtxCapacity = Constraint(model.t, rule = actualGenLTEtxCapacity_rule)
+    def actualGenLTEtxCapacity_rule(model, t, y):
+        return model.actualGen[t, y] <= model.tx_capacity
+    model.actualGenLTEtxCapacity = Constraint(model.HOURYEAR, rule = actualGenLTEtxCapacity_rule)
 
     ## Constraint (4) ---
-    ## Define annual costs (equation #2)
-    def annualCosts_rule(model):
-        return model.cost == model.solar_capacity*(model.capEx_s*model.CRF + model.om_s) + \
-            model.wind_capacity*(model.capEx_w*model.CRF + model.om_w) + model.tx_capacity*(model.capEx_tx*model.CRF)
-    model.annualCosts = Constraint(rule=annualCosts_rule)
+    ## Define annual costs (equation #2) --
+    def lifetimeCosts_rule(model):
+        return model.cost == model.solar_capacity*model.capEx_s + model.solar_capacity*model.om_s/model.CRF + \
+            model.wind_capacity*model.capEx_w + model.wind_capacity*model.om_w/model.CRF + \
+                model.tx_capacity*model.capEx_tx + \
+                model.P_batt_max * model.batt_power_cost + model.E_batt_max * model.batt_energy_cost
+    model.annualCosts = Constraint(rule=lifetimeCosts_rule)
 
     ## CONSTRAINT (5) ---
-    ## Check that capacity is less than or equal to potential for both wind and solar (equation #5)
+    ## Ensure that capacity is less than or equal to potential for both wind and solar (equation #5)
 
     # Define rule for solar
     def max_capacity_solar_rule(model):
@@ -347,14 +395,11 @@ def runOptimization(PID):
     ## Define annual revenue
     # taking the total generation of wind and solar and multiply by price of solar (choose price of solar or wind)
     # divide by 3 to get annual revenue when running for 3 years, get annual average revenue over 3 years
-    def annualRevenue_rule(model):
-        return model.revenue == sum(model.actualGen[t]*model.eprice_solar[t] for t in model.t)/3
-    model.annualRevenue = Constraint(rule=annualRevenue_rule)
-
-    ## transmission capacity is less than wind capacity 
-    #def tx_wind_rule(model):
-    #    return model.tx_capacity <= model.wind_capacity 
-    #model.tx_wind = Constraint(rule=tx_wind_rule)
+    def lifetimeRevenue_rule(model):
+        return model.revenue == sum(model.Export_t[t,y]*model.eprice_wind_2030[t,y] * fraction[y] for t in model.t and y in model.y)
+                    
+    model.annualRevenue = Constraint(rule=lifetimeRevenue_rule)
+    
 
     ## CONSTRAINT (7) ---
     ## Check that transmission capacity is less than wind capacity 
@@ -362,6 +407,77 @@ def runOptimization(PID):
     def tx_wind_rule(model):
         return model.tx_capacity <= model.wind_capacity #+ model.solar_capacity
     model.tx_wind = Constraint(rule=tx_wind_rule)
+    
+    
+    ## CONSTRAINT (1 - BATTERY) ---
+    ## Battery cannot simultaneously charge and discharge
+    def batt_noSimultaneousChargingDischarging_rule(model, t, y):
+        return model.P_char_t[t,y] * model.P_dischar_t[t,y] == 0
+    model.batt_noSimultaneousChargingDischarging = Constraint(model.HOURYEAR, rule = batt_noSimultaneousChargingDischarging_rule)
+    
+    ## CONSTRAINT (2 - BATTERY) --- CHECK THIS!
+    ## No charging in hour 1
+    def batt_nochargingAtTime1_rule(model, t, y):
+        return model.P_char_t[1] - model.P_dischar_t[1] == 0
+    model.batt_nochargingAtTime1 = Constraint(model.HOURYEAR, rule = batt_nochargingAtTime1_rule)
+    
+    ## CONSTRAINT (3 - BATTERY) --- 
+    ## initiate the battery charge at time  = 0 at 50% of maximum energy storage 
+    def batt_startAt50percent_rule(model, t, y):
+        return model.E_batt_t[1] == 0.5 * model.E_batt_max
+    model.batt_startAt50percent = Constraint(model.HOURYEAR, rule = batt_startAt50percent_rule)
+    
+    ## CONSTRAINT (4 - BATTERY) --- 
+    ## the losses while charging in hour t is equal to the charging power times 1 - the square root of the round trip efficiency
+    def batt_loss_charging_rule(model, t, y):
+        return model.L_char_t[t, y] == model.P_char_t[t, y] * (1 - model.batt_rtEff_sqrt)
+    model.batt_loss_charging = Constraint(model.HOURYEAR, rule = batt_loss_charging_rule)
+    
+    ## CONSTRAINT (5 - BATTERY) --- 
+    ## the losses while discharging in hour t is equal to the discharging power plus the losses while discharging times 1 - the square root of the round trip efficiency
+    def batt_loss_discharging_rule(model, t, y):
+        return model.L_dischar_t[t, y] == (model.P_dischar_t[t, y] + model.L_dischar_t[t, y]) * (1 - model.batt_rtEff_sqrt)
+    model.batt_loss_discharging = Constraint(model.HOURYEAR, rule = batt_loss_discharging_rule)
+
+    ## CONSTRAINT (6 - BATTERY) --- 
+    ## energy balance of the battery is equal to the energy in the previous hour plus the charging power in hour t minus discharging power minus losses
+    def batt_energyBalance_rule(model, t, y):
+        return model.E_batt_t[t, y] == model.E_batt_t[t-1, y] + model.P_char_t[t, y] - model.P_dischar_t[t, y] - model.L_char_t[t, y] - model.L_dischar_t[t, y]
+    model.batt_energyBalance = Constraint(model.HOURYEAR, rule = batt_energyBalance_rule)
+    
+    ## CONSTRAINT (7 - BATTERY) --- 
+    ## Charge in hour t must be less than or equal to the amt of potential generation 
+    def batt_chargeLessThanGeneration_rule(model, t, y):
+        return -model.P_char_t[t, y] == model.potentialGen[t, y]
+    model.batt_chargeLessThanGeneration = Constraint(model.HOURYEAR, rule = batt_chargeLessThanGeneration_rule)
+    
+    ## CONSTRAINT (8 - BATTERY) ---  
+    ## Charge in hour t must be less than or equal to the amt of potential generation 
+    def batt_dischargeLessThanPowerCapacity_rule(model, t, y):
+        return model.P_dischar_t[t, y] <= model.P_batt_max
+    model.batt_dischargeLessThanPowerCapacity = Constraint(model.HOURYEAR, rule = batt_dischargeLessThanPowerCapacity_rule)
+    
+    ## CONSTRAINT (9 - BATTERY) --- 
+    ## Electricity exported to the grid is equal to actual generation plus the battery dicharge minus the battery charging power
+    def batt_export_rule(model, t, y):
+        return model.Export_t[t, y] == model.actualGen[t, y] + model.P_dischar_t[t, y] - model.P_char_t[t, y]
+    model.batt_export = Constraint(model.HOURYEAR, rule = batt_export_rule)
+    
+    ## CONSTRAINT (10 - BATTERY) --- 
+    ## Energy in battery at time t must be less than or equal to 
+    def batt_export_rule(model, t, y):
+        return model.Export_t[t, y] == model.actualGen[t, y] + model.P_dischar_t[t,y] - model.P_char_t[t,y]
+    model.batt_chargeLessThanGeneration = Constraint(model.HOURYEAR, rule = batt_chargeLessThanGeneration_rule)
+    
+    
+    ## CONSTRAINT (12 - BATTERY) --- 
+    ## Maximum battery energy is equal to the battery duration times the maximum power of the battery
+    def batt_maxEnergy_rule(model):
+        return model.E_batt_max = model.P_batt_max * model.duration_batt
+    model.batt_maxEnergy = Constraint(rule = batt_maxEnergy_rule)
+    
+    
+    
 
 
     ## ================
